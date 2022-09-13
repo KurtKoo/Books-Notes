@@ -42,5 +42,5 @@
 ## Device
 * 在Linux中，最底层表示设备的数据结构为`struct device`。在`struct device`中，`struct kboject`表示设备并用于与系统交互。Linux中一般不用`struct device`，多为用`struct platform_device`进行封装。
 
-![linux device model](地址)
+![linux device model](https://github.com/KurtKoo/Books-Notes/tree/master/Linux%20Driver%20Development%20with%20Raspberry%20Pi/img/chap2)
 
