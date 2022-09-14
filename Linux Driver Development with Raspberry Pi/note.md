@@ -42,5 +42,20 @@
 ## Device
 * 在Linux中，最底层表示设备的数据结构为`struct device`。在`struct device`中，`struct kboject`表示设备并用于与系统交互。Linux中一般不用`struct device`，多为用`struct platform_device`进行封装。
 
-![linux device model](https://github.com/KurtKoo/Books-Notes/tree/master/Linux%20Driver%20Development%20with%20Raspberry%20Pi/img/chap2/linux_device_model.png)
+![linux device model](https://github.com/KurtKoo/Books-Notes/blob/master/Linux%20Driver%20Development%20with%20Raspberry%20Pi/img/chap2/linux_device_model.png)
+
+# Chapter 3 The Simplest Drivers
+* module_init()和module_exit()分别导出驱动init()和exit()函数。
+* module_param(变量名，变量类型，变量权限)用于导出某一变量。
+
+# Chapter 4 Character Drivers
+* Linux支持character device（c）、block device（b）和network device。character device，无缓冲区设备类型。block device，通常以块大小访问，512或1024字节。
+* copy_from_user()和copy_to_user()用于进行内核态与用户态之间的数据交换。
+* Linux中每个设备都有其major number（主设备号）和minor number（从设备号）。
+* `mknod /dev/test_c_dev c 202 108`，创建一个主设备号为202和从设备号为108的character device。在kernel中，character device用`struct cdev`表示。
+
+## Registration and Unregistration
+* register_chrdev_region(dev_t first, unsigned int count, char* name)和unregister_chrdev_region(dev_t first, unsigned int count)用于注册和注销character device。
+* dev_t类型数据可以用宏MKDEV或者alloc_chrdev_region(dev_t* dev, unsigned baseminor, unsigned count, const char* name)函数获取。推荐用后者。
+* cdev_init()用于初始化character device。cdev_add()用于添加character device于kernel中。
 
