@@ -55,7 +55,156 @@
 * `mknod /dev/test_c_dev c 202 108`，创建一个主设备号为202和从设备号为108的character device。在kernel中，character device用`struct cdev`表示。
 
 ## Registration and Unregistration
-* register_chrdev_region(dev_t first, unsigned int count, char* name)和unregister_chrdev_region(dev_t first, unsigned int count)用于注册和注销character device。
-* dev_t类型数据可以用宏MKDEV或者alloc_chrdev_region(dev_t* dev, unsigned baseminor, unsigned count, const char* name)函数获取。推荐用后者。
+* register_chrdev_region(dev_t first, unsigned int count, char* name)和unregister_chrdev_region(dev_t first, unsigned int count)用于注册和注销character device。__推荐用alloc_chrdev_region(dev_t* dev, unsigned baseminor, unsigned count, const char* name)函数，因为该函数可动态获取主设备号。__
+* dev_t类型数据可以用宏MKDEV获取。
 * cdev_init()用于初始化character device。cdev_add()用于添加character device于kernel中。
+
+## Class Character Device
+* class_create()和class_destroy()用于创建和销毁类。
+* device_create()和device_destroy()用于创建和销毁设备节点。
+* 可创建一个class，基于这个class创建一个device，且这个device是与某个已创建的character device绑定，以达到一个class可以管理多个device(character device)的目的。
+
+# Chapter 5 Platform Drivers
+待写
+
+# Chapter 6 I2C Client Drivers
+待写
+
+# Chapter 7 Handling Interrupts in Device Drivers
+* `struct irq_chip` - hardware interrupt chip descriptor
+* `struct irq_desc`，表示一个IRQ。`struct irq_data`，包含底层中与中断管理相关的信息。
+
+## Linux Kernel IRQ Domain for GPIO Controllers
+待写
+
+## Device Tree Interrupt Handling
+* 节点property
+    1. `interrupt-controller`，表示该节点接收中断信号。
+    2. `interrupt-cells`，indicates the number of cells in the interrupts property for the child device nodes。
+    3. `interrupt-parent`， a phandle to the interrupt controller that it is attached to。Nodes that do not have an interrupt-parentproperty can also inherit the property of their parent node.
+    4. `interrupt`,containing a list of interrupt specifiers, one for each interrupt output signal on the device.
+
+## Requesting Interrupts in Linux Device Drivers
+* interrupt context（中断上下文）中不可访问用户空间和进入睡眠。中断服务函数，不可以进行任何可能睡眠的操作。
+* 推荐用devm_request_irq()函数获取中断线，可自动管理中断资源。
+
+## Deferred Work
+* Linux kernel在两种上下文中运行。
+    1. 进程上下文（process context），**可被阻塞**。（1）作为用户进程的操作运行在此环境，如system call kernel service routine；（2）**workqueue**和**threaded interrupt**都运行在进程上下文。
+    2. 中断上下文（interrupt context），**不可被阻塞、调度（原子化）和睡眠**。**softirq**、**tasklet**和**timer**都运行在中断上下文。
+* workqueue和（threaded irq的bottom half）是在kernel thread基础上实现的，因此可阻塞，运行在进程上下文中。
+* tasklet和timer是在softirq基础上实现的，因此不可阻塞，运行在中断上下文中。
+
+* Linux中断分为两部分：
+    * top half（上半部）
+        1. 要求占用时间少。
+        2. 要求处理速度快。
+        3. 期间所有中断都关闭，并调度bottom half作进一步处理。
+        4. top half即handler本身。
+    * bottom half（下半部）
+        1. 时间要求不高。
+        2. 期间中断使能。
+
+### Softirq（软中断）
+* 属于bottom half
+* 运行在中断上下文。
+* 为kernel subsystem准备，不可被设备驱动使用。
+* 在所有IRQ handler运行结束后，才运行softirq，且可被top half抢占。
+* HI_SOFTIRQ与TASKLET_SOFTIRQ用于运行tasklet。HI_SOFTIRQ优先级最高。
+
+### Tasklet
+* 属于bottom half。
+* 在softirq基础上实现。
+* 运行在中断上下文。
+* 可被设备驱动使用，用`struct tasklet`表示。
+* 运行期间所有中断可用，但一个tasklet一次只可在一个CPU上运行。
+* 使用
+    1. 静态方式
+       >void handler(unsigned long data);  
+        DECLARE_TASKLET(tasklet, handler, data);  
+        DECLARE_TASKLET_DISABLED(tasklet, handler, data);
+    2. 动态方式
+       >void handler(unsigned long data);  
+        struct tasklet_struct tasklet;  
+        tasklet_init(&tasklet, handler, data);
+    3. 中断服务函数中调度tasklet的执行
+       >void tasklet_schedule(struct tasklet_struct *tasklet); //用TASKLET_SOFTIRQ softirq
+        >
+       >void tasklet_hi_schedule(struct tasklet_struct *tasklet); //用HI_SOFTIRQ softirq
+
+### Timer
+* 在softirq基础上实现。
+* 运行在中断上下文。
+* 可被设备驱动调用，以`struct timer_list`表示。
+* 时间单位由`jiffie`表示。
+    > jiffie与秒的换算  
+    jiffies_value = seconds_value * HZ; //HZ为宏，代表一秒内多少个jiffie  
+    seconds_value = jiffies_value / HZ;
+* 使用timer
+    1. 初始化timer。
+    > void setup_timer(struct timer_list * timer, void (*function)(unsigned long),unsigned long data);
+    2. 运行timer。
+    > int mod_timer(struct timer_list *timer, unsigned long expires); //在`expires`秒后运行handler
+    3. 停止timer，用del_timer()和del_timer_sync()。
+
+### Threaded Interrupt
+* 可运行在进程上下文和中断上下文，handler运行在中断上下文（属于top half），thread_handler运行在进程上下文（属于bottom half）。
+* 推荐用 devm_request_threaded_irq()申请。
+* devm_request_threaded_irq()参数：
+    * `handler`可设NULL，会调用默认handler返回 IRQ_WAKE_THREAD，以调用对应的thread_handler。thread_handler运行期间，所有中断使能。
+    * `flag`
+        * IRQF_DISABLED，关闭所有中断。其他CPU也不能接收中断。
+        * IRQF_SHARED，当前interrupt line可被其他handler共用。
+        * IRQF_ONESHOT，当前interrupt line会在thread_handler运行过程中被激活（process context）。没有设置的话，当前interrupt line会在handler结束运行后重新激活（interrupt context）。
+
+### Workqueue
+* 运行在process context，可睡眠。
+* 使用workqueue
+    1. 声明与初始化一项`work`
+    > #include <linux/workqueue.h>  
+    >   
+    >  //声明并初始化一项`work`  
+    void my_work_handler(struct work_struct *work);  
+    DECLARE_WORK(my_work, my_work_handler);  
+    >  
+    >//分开声明和初始化`work`  
+    void my_work_handler(struct work_struct *work);  
+    struct work_struct my_work;  
+    INIT_WORK(&my_work, my_work_handler);
+
+    2. 使`work`进入workqueue，参与调度
+    > //运行在任意可行的CPU上  
+    schedule_work(struct work_struct *work);  
+    schedule_delayed_work(struct delayed_work *work, unsigned long delay); //基于timer使`work`过后再参与调度  
+    >   
+    > //运行在指定CPU或所有CPU上
+    int schedule_delayed_work_on(int cpu, struct delayed_work *work, unsigned long delay);  
+    int schedule_on_each_cpu(void(*function)(struct work_struct *));
+
+    3. 使用flush_scheduled_work()去等待某个`work`完成。
+
+    4. 额外创建`workqueue`情况
+    > struct workqueue_struct *create_workqueue(const char *name); //每个CPU创建一个`workqueue`  
+    struct workqueue_struct *create_singlethread_workqueue(const char *name); //仅创建一个`workqueue`  
+    >  
+    >  //为`workqueue`添加`work`  
+    int queue_work(struct workqueue_struct *queue, struct work_struct *work);  
+    int queue_delayed_work(struct workqueue_struct *queue, struct delayed_work *work, unsigned long delay);  
+    >  
+    > //等待所有`work`完成  
+    void flush_workqueue(struct worksqueue_struct *queue);  
+    >  
+    > //销毁`workqueue`  
+    void destroy_workqueue(structure workqueque_struct *queue);  
+
+## Locking in the Kernel
+
+
+
+
+
+
+
+
+
 
