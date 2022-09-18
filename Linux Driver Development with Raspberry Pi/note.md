@@ -198,7 +198,35 @@
     void destroy_workqueue(structure workqueque_struct *queue);  
 
 ## Locking in the Kernel
+* spinlock
+    * 不断地获取。
+    * 推荐用spin_lock_irqsave()，会关闭当前core的中断，但不影响其他core索求spinlock。因此，当获取了spinlock在进程上下文执行时，其他核处于中断上下文请求spinlock，实现spinlock在进程上下文和中断上下文的共享。
 
+* mutex
+    * 无法获取，就阻塞。
+    * 如果数据一直处于用户态，应该使用mutex。
+    * 推荐使用mutex_lock_interruptible()。
+
+## Sleeping in the Kernel
+* wait queue
+> 静态声明和初始化  
+DECLARE_WAIT_QUEUE_HEAD(name);  
+>  
+> 动态声明和初始化  
+wait_queue_head_t my_queue;  
+init_waitqueue_head(&my_queue);  
+>   
+>  设置等待事件，推荐使用可中断版本  
+> wait_event(queue, condition);  
+wait_event_interruptible(queue, condition);  
+wait_event_timeout(queue, condition, timeout);  
+wait_event_interruptible_timeout(queue, condition, timeout);  
+>  
+> 唤醒  
+void wake_up(wait_queue_head_t *queue); /* wake_up wakes up all processes waiting on the given queue */  
+void wake_up_interruptible(wait_queue_head_t *queue); /* restricts itself to processes performing an interruptible sleep */
+
+## Kernel Thread
 
 
 
