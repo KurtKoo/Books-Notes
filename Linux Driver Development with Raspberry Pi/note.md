@@ -227,7 +227,30 @@ void wake_up(wait_queue_head_t *queue); /* wake_up wakes up all processes waitin
 void wake_up_interruptible(wait_queue_head_t *queue); /* restricts itself to processes performing an interruptible sleep */
 
 ## Kernel Thread
+* 在进程上下文中，运行内核代码，无任何用户地址空间。
+* kernel thread, workqueue的实现基础。
 
+* 使用
+> 创建kernel thread  
+#include <linux/kthread.h>  
+structure task_struct *kthread_create(int (*threadfn)(void *data),
+ void *data, const char namefmt[], ...);  
+ >  
+ > 例子  
+ kthread_create(f, NULL, "%skthread%d", "my", 0);  
+ >  
+ > 运行kernel thread  
+ #include <linux/sched.h>  
+int wake_up_process(struct task_struct *p);  
+>  
+> 创建并运行kernel thread  
+struct task_struct *kthread_run(int (*threadfn)(void *data),
+ void *data, const char namefmt[], ...);  
+>  
+> 停止kernel thread  
+kthread_stop()
+
+* kthread_stop()是会向对应kernel thread发送信号以终止。kernel thread在运行过程中，无法被中断，因此需要检查信号。
 
 
 
