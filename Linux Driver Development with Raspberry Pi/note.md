@@ -253,7 +253,42 @@ kthread_stop()
 * kthread_stop()是会向对应kernel thread发送信号以终止。kernel thread在运行过程中，无法被中断，因此需要检查信号。
 
 
+# Chapter 8 Allocating Kernel Memory
+## Linux Address Types
+* User Virtual Address，32位机器下分配1G高地址作为内核空间的话，0xC0000000为内核地址空间基地址。
+![user virtual address](上传github，再分配地址)
+* Physical Address，处理器与内存之间的地址。
+* Bus Address，在外设地址与内存地址之间使用。可用IOMMU把bus address映射至内存，在配置DMA时必须要配置IOMMU。
+* Kernel Logical Address，内核空间地址，`kmalloc()`返回的就是指向kernel logical address，实际是从**连续物理地址**映射至内存的。__pa(addr)可把kernel logical address转换为实际物理地址，__va(addr)可把实际物理地址转换为kernel logical address。
+* Kernel Virtual Address，内核空间地址但**物理地址不连续**（vmalloc()返回）。`ioremap()`返回kernel virtual address。通过`iotable_init()`的机器特定的静态映射也是保存在kernel virtual address。
 
+## Kernel Virtual to Physical Memory Mapping
+* kernel physical memory可分为四个区域
+    * ZONE_DMA，地址空间为kernel virtual address，利用`dma_alloc_xxx()`取得。
+    * ZONE_NORMAL，地址空间为kernel logical address，利用`kmalloc()`取得。
+    * ZONE_HIGHMEM，地址空间为kernel virtual address，利用`vmalloc()`取得。
+    * Memory-Mapped I/O，地址空间为kernel virtual address，利用`ioremap()`取得。
+![kernel memory layout](地址)
+
+## Kernel Memory Allocators
+![kernel memory allocator](地址)
+* 主要为**page allocator**和**slab allocator**。
+* slab allocator是基于page allocator实现的。
+* kernel allocated memory不可被换出，也没有fault handler。
+
+### Page Allocator
+* 管理整个kernel的page分配。管理物理上连续的page，并映射至MMU page table中。
+* page分配算法使用的是**Binary Buddy Allocator**(<https://www.kernel.org/doc/gorman/html/understand/understand009.html>)
+
+* API
+>unsigned long get_zeroed_page(int flags); /* Returns the virtual address of a free page, initialized to zero */  
+unsigned long __get_free_page(int flags); /* Same, but doesn't initialize the contents */  
+unsigned long __get_free_pages(int flags, unsigned int order); /* Returns the starting virtual address of an area of several contiguous pages in physical RAM, with the order being log2(number_of_pages. Can be computed from the size with the get_order() function */  
+>  
+> 常用flags  
+GFP_KERNEL，日常使用，可能因空间不足而阻塞。  
+GFP_ATOMIC，不允许阻塞，但空间不足会分配失败。  
+GFP_DMA，用于DMA传输。
 
 
 

@@ -102,7 +102,7 @@ static int led_flash(void *data){
     struct led_device *led_dev = data;
     dev_info(led_dev->dev, "Task started\n");
     dev_info(led_dev->dev, "I am inside the kthread\n");
-    while(!kthread_should_stop()) {
+    while(!kthread_should_stop()) { //检查是否收到kthread_stop()信号
         spin_lock_irqsave(&led_dev->private->period_lock, flags);
         u32 period = led_dev->private->period;
         spin_unlock_irqrestore(&led_dev->private->period_lock, flags);
