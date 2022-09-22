@@ -256,7 +256,7 @@ kthread_stop()
 # Chapter 8 Allocating Kernel Memory
 ## Linux Address Types
 * User Virtual Address，32位机器下分配1G高地址作为内核空间的话，0xC0000000为内核地址空间基地址。
-![user virtual address](上传github，再分配地址)
+![user virtual address](https://github.com/KurtKoo/Books-Notes/tree/master/Linux%20Driver%20Development%20with%20Raspberry%20Pi/img/chap8/user_virtual_address.png)
 * Physical Address，处理器与内存之间的地址。
 * Bus Address，在外设地址与内存地址之间使用。可用IOMMU把bus address映射至内存，在配置DMA时必须要配置IOMMU。
 * Kernel Logical Address，内核空间地址，`kmalloc()`返回的就是指向kernel logical address，实际是从**连续物理地址**映射至内存的。__pa(addr)可把kernel logical address转换为实际物理地址，__va(addr)可把实际物理地址转换为kernel logical address。
@@ -268,10 +268,10 @@ kthread_stop()
     * ZONE_NORMAL，地址空间为kernel logical address，利用`kmalloc()`取得。
     * ZONE_HIGHMEM，地址空间为kernel virtual address，利用`vmalloc()`取得。
     * Memory-Mapped I/O，地址空间为kernel virtual address，利用`ioremap()`取得。
-![kernel memory layout](地址)
+![kernel memory layout](https://github.com/KurtKoo/Books-Notes/tree/master/Linux%20Driver%20Development%20with%20Raspberry%20Pi/img/chap8/kernel_memory_layout.png)
 
 ## Kernel Memory Allocators
-![kernel memory allocator](地址)
+![kernel memory allocator](https://github.com/KurtKoo/Books-Notes/tree/master/Linux%20Driver%20Development%20with%20Raspberry%20Pi/img/chap8/kernel_memory_allocator.png)
 * 主要为**page allocator**和**slab allocator**。
 * slab allocator是基于page allocator实现的。
 * kernel allocated memory不可被换出，也没有fault handler。
