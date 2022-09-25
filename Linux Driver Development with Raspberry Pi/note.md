@@ -277,6 +277,7 @@ kthread_stop()
 * kernel allocated memory不可被换出，也没有fault handler。
 
 ### Page Allocator
+* 只可用于kernel code
 * 管理整个kernel的page分配。管理物理上连续的page，并映射至MMU page table中。
 * page分配算法使用的是**Binary Buddy Allocator**(<https://www.kernel.org/doc/gorman/html/understand/understand009.html>)
 
@@ -289,6 +290,59 @@ unsigned long __get_free_pages(int flags, unsigned int order); /* Returns the st
 GFP_KERNEL，日常使用，可能因空间不足而阻塞。  
 GFP_ATOMIC，不允许阻塞，但空间不足会分配失败。  
 GFP_DMA，用于DMA传输。
+
+### SLAB Allocator
+![slab allocator](地址)
+* 只可用于kernel code
+* slab allocator可用于创建cache，每个cache里面可包含多个slab，每个slab里可包含多个kernel object
+* cache，包含多个同类型的kernel object。kernel采用doubly-linked list去链接创建好的cache。
+* slab，是存储在内存物理页面上的连续memory块，一个cache上的每个slab块可保存多个同类型的kernel object。
+
+* API
+> 创建cache,内部会分配slab块，并初始化kernel object  
+struct kmem_cache *kmem_cache_create(const char *name, size_t size, 
+ size_t align, unsigned long flags, void (*ctor)(void*));  
+参数  
+name: A string which is used in /proc/slabinfo to identify this cache.  
+size: The size of objects to be created in this cache.  
+align: Additional space added to each object (for some additional data).  
+flags: SLAB flags.  
+constructor: Used to initialize objects.  
+>  
+> 销毁cache  
+void kmem_cache_destroy(struct kmem_cache *cp);  
+>  
+> 从创建好的cache中分配一个kernel object，如果所有的kernel object都被kernel使用中，则会向page allocator再申请page空间，从而返回kernel object  
+void *kmem_cache_alloc(struct kmem_cache *s, gfp_t gfpflags);  
+>  
+> 释放kernel object，并放回cache中  
+void kmem_cache_free(struct kmem_cache *s, void *x);
+
+### kmalloc Allocator
+* 可用于driver code
+* 申请大空间，会基于page allocator。申请小空间，会基于slab allocator。
+* 物理上连续。
+* ARM上每次可分配**4MB**空间，总共可分配**128MB**空间。
+
+* API
+>#include <linux/slab.h>  
+分配  
+static inline void *kmalloc(size_t size, int flags)  
+void *kzalloc(size_t size, gfp_t flags) /* Allocates a zero-initialized buffer */  
+>  
+>释放  
+void kfree(const void *objp);  
+>  
+>推荐用以下  
+>/* Automatically free the allocated buffers when the corresponding
+device or module is unprobed */  
+void *devm_kmalloc(struct device *dev, size_t size, int flags);  
+/* Allocates a zero-initialized buffer */  
+void *devm_kzalloc(struct device *dev, size_t size, int flags);  
+/* Useful to immediately free an allocated buffer */  
+void *devm_kfree(struct device *dev, void *p);
+
+
 
 
 
