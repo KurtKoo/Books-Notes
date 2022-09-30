@@ -30,7 +30,7 @@ static int createlist (struct platform_device *pdev)
     /* New node creation */
     newNode = devm_kmalloc(&pdev->dev, sizeof(data_node), GFP_KERNEL);
     if (newNode)
-        newNode->buffer = devm_kmalloc(&pdev->dev, BlockSize*sizeof(char), GFP_KERNEL);
+        newNode->buffer = devm_kmalloc(&pdev->dev, BlockSize*sizeof(char), GFP_KERNEL); //buffer空间
     if (!newNode || !newNode->buffer)
         return -ENOMEM;
     newNode->next = NULL;
@@ -62,29 +62,29 @@ static ssize_t my_dev_write(struct file *file, const char __user *buf,
     int size_to_copy;
     pr_info("my_dev_write() is called.\n");
     pr_info("node_number_%d\n", node_count);
-    if ((*(offset) == 0) || (node_count == 1))
+    if ((*(offset) == 0) || (node_count == 1))  //还没被写
     {
         size_to_read += size;
     }
-    if (size < BlockSize - newListe.cur_write_offset)
+    if (size < BlockSize - newListe.cur_write_offset)   //控制写长度
         size_to_copy = size;
     else
         size_to_copy = BlockSize - newListe.cur_write_offset;
-    if(copy_from_user(newListe.cur_write_node->buffer + newListe.cur_write_offset, buf, 
+    if(copy_from_user(newListe.cur_write_node->buffer + newListe.cur_write_offset, buf,     //从用户态复制至内核态
     size_to_copy))
     {
         return -EFAULT;
     }
-    *(offset) += size_to_copy;
+    *(offset) += size_to_copy;  //移动用户态的offset
     newListe.cur_write_offset += size_to_copy;
-    if (newListe.cur_write_offset == BlockSize)
+    if (newListe.cur_write_offset == BlockSize) //写满一个node的buffer
     {
-        newListe.cur_write_node = newListe.cur_write_node->next;
-        newListe.cur_write_offset = 0; 
-        node_count = node_count+1;
-        if (node_count > BlockNumber)
+        newListe.cur_write_node = newListe.cur_write_node->next;    //更换当前可写node
+        newListe.cur_write_offset = 0;  //offset至0
+        node_count = node_count+1;  //被写node加1
+        if (node_count > BlockNumber)   //node写满
         {
-            newListe.cur_read_node = newListe.cur_write_node;
+            newListe.cur_read_node = newListe.cur_write_node;   //当前可写节点，已为NULL
             newListe.cur_read_offset = 0;
             node_count = 1;
             cnt = 0;
@@ -97,23 +97,23 @@ static ssize_t my_dev_read(struct file *file, char __user *buf, size_t count, lo
 {
     int size_to_copy;
     int read_value;
-    read_value = (size_to_read - (BlockSize * cnt));
-    if ((*offset) < size_to_read)
+    read_value = (size_to_read - (BlockSize * cnt));    //除去已读node的即将读大小
+    if ((*offset) < size_to_read)   //要求读大小 > 可读大小
     {
-        if (read_value < BlockSize - newListe.cur_read_offset)
+        if (read_value < BlockSize - newListe.cur_read_offset)  //即将读大小 < 当前node空余大小
             size_to_copy = read_value;
         else
-            size_to_copy = BlockSize - newListe.cur_read_offset;
-        if(copy_to_user(buf, newListe.cur_read_node->buffer + newListe.cur_read_offset,
+            size_to_copy = BlockSize - newListe.cur_read_offset;    //先读完当前node
+        if(copy_to_user(buf, newListe.cur_read_node->buffer + newListe.cur_read_offset, //内核态复制至用户态
         size_to_copy))
         {
             return -EFAULT;
         }
         newListe.cur_read_offset += size_to_copy;
-        (*offset)+=size_to_copy;
-        if (newListe.cur_read_offset == BlockSize)
+        (*offset)+=size_to_copy;        //移动已读offset
+        if (newListe.cur_read_offset == BlockSize)  //读完一个block，移动可读node
         {
-            cnt = cnt+1;
+            cnt = cnt+1;    //已读的node
             newListe.cur_read_node = newListe.cur_read_node->next;
             newListe.cur_read_offset = 0;
         }
