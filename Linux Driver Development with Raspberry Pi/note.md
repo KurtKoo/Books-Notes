@@ -71,7 +71,36 @@
 * `int misc_register(struct miscdevice *misc);`和`int misc_deregister(struct miscdevice *misc);`为所用函数。`struct miscdevice`的`minor`成员设置为MISC_DYNAMIC_MINOR即可使用动态minor number。
 
 # Chapter 5 Platform Drivers
-待写
+## Documentation to Interact with The Hardware
+
+## Hardware Naming Convention
+
+## Pin Control Subsystem
+
+## GPIO Controller Driver
+
+## GPIO Descriptor Consumer Interface
+### Obtaining and Disposing GPIOs
+### Using GPIOs
+### GPIOs mapped to IRQs
+### GPIOs in The Device Tree
+
+## Exchanging Data between Kernel and User Spaces
+
+## MMIO (Memory-Mapped I/O) Device Access
+
+## Platform Driver Resources
+
+## Linux LED Class
+
+## Platform Device Drivers in User Space
+
+## User Defined I/O
+### How UIO works
+### Kernel UIO API
+
+
+
 
 # Chapter 6 I2C Client Drivers
 待写
