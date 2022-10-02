@@ -342,6 +342,79 @@ void *devm_kzalloc(struct device *dev, size_t size, int flags);
 /* Useful to immediately free an allocated buffer */  
 void *devm_kfree(struct device *dev, void *p);
 
+# Chapter 9 DMA in Device Drivers
+## Cache Coherency
+* 面向non-coherent的ARM架构和coherent的ARM架构，kernel提供两种数据结构，分别为`struct arm_dma_ops`和`struct arm_coherent_dma_ops`。
+
+## Linux DMA Engine API
+官方参考文档<https://www.kernel.org/doc/html/latest/driver-api/dmaengine/client.html>
+
+* slave DMA用法
+    1. 分配DMA slave channel
+    > 申请  
+    struct dma_chan *dma_request_chan(struct device *dev, const char *name);  
+    释放  
+    dma_release_channel()
+
+    2. 设置slave和controller具体参数
+    > dma_slave_config可用于传递参数  
+    int dmaengine_slave_config(struct dma_chan *chan, struct dma_slave_config *config);
+
+    3. 获取transaction（事务）的descriptor(描述符)
+        * slave_sg: scatter/gather buffers from/to a peripheral
+        > 调用前scatter list要已完成基于DMA的struct device的映射，且映射至少保持至DMA操作完成。  
+        struct dma_async_tx_descriptor *dmaengine_prep_slave_sg(  
+ struct dma_chan *chan, struct scatterlist *sgl,  
+ unsigned int sg_len, enum dma_data_direction direction,  
+ unsigned long flags);  
+
+        * dma_cycli: 一直运行，直至被停止。
+        > struct dma_async_tx_descriptor *dmaengine_prep_dma_cyclic(  
+ struct dma_chan *chan, dma_addr_t buf_addr, size_t buf_len,  
+ size_t period_len, enum dma_data_direction direction);
+
+        * interleaved_dma: M2M模式（machine to machine）,驱动已知对应地址。
+        > 不同类型操作可通过设置dma_interleaved_template中对应的值  
+        struct dma_async_tx_descriptor *dmaengine_prep_interleaved_dma(  
+ struct dma_chan *chan, struct dma_interleaved_template *xt,  
+ unsigned long flags);
+
+  4. 提交transaction
+    > 不是马上进行DMA操作，而是插入DMA操作队列中。  
+    dma_cookie_t dmaengine_submit(struct dma_async_tx_descriptor *desc);
+
+    5.发出等待DMA请求，等待回调
+    > **tasklet**会调用client completion callback routine  
+    void dma_async_issue_pending(struct dma_chan *chan);
+
+* `kmalloc()`（最大128KB）和` __get_free_pages()`（最大8MB）可用于DMA的memory。一般coherent的架构会有**Contiguous Memory Allocator(CMA)**用于分配大块连续memory，用`dma_alloc_coherent()`获取。
+
+### Types of DMA mappings
+* Coherent DMA Mapping
+    * 通过`dma_alloc_coherent()`用内核空间的非缓存memory映射，多用于coherent的ARM架构。
+    * 当用于non-coherent架构，`dma_alloc_coherent()`内部会调用`arm_dma_alloc()`，内部再调用` __dma_alloc()`。` __dma_alloc()`接收`pgprot_t`参数使memory uncached。
+    * `dma_alloc_coherent()`
+        * 返回CPU的虚拟地址和DMA地址（`dma_handle`保存）
+        * `GFP_ATOMIC`的flag可使函数运行在中断上下文。
+        * 地址保证与最小**PAGE_SIZE**对齐，并大于等于所请求的大小。
+        * `dma_free_coherent(dev, size, cpu_addr, dma_handle);`释放mapping，但不可运行在中断上下文。
+
+* Streaming DMA Mapping
+    * 使用的是cached memory，需要进行invalidate和写回的操作。
+    * `dma_map_single()`和`dma_unmap_single()`为主要函数。对于non-coherent架构，内部调用`dma_map_single_attrs()`，内部再调用`arm_dma_map_page()`，确保cache中数据被正确丢弃或写回。
+    * `dma_map_single()`可在中断上下文环境调用，可用于map连续memory区域和scatter memory区域。
+    > struct device *dev = &my_dev->dev;  
+    dma_addr_t dma_handle;  
+    void *addr = buffer->ptr;  
+    size_t size = buffer->len;  
+    dma_handle = dma_map_single(dev, addr, size, direction); //direction可选DMA_BIDIRECTIONAL, DMA_TO_DEVICE or DMA_FROM_DEVICE  
+
+    * rules
+        1. buffer仅可用于对应direction。
+        2. mapped buffer是属于device的，不是CPU。
+        3. 用于发送的buffer要在map前写入数据。
+        4. DMA运行中，buffer不可unmap。
+
 
 
 
