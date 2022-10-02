@@ -20,7 +20,7 @@ static void dma_m2m_callback(void *data)
 {
     struct dma_private *dma_priv = data;
     dev_info(dma_priv->dev, "%s\n finished DMA transaction" ,__func__);
-    complete(&dma_priv->dma_m2m_ok);
+    complete(&dma_priv->dma_m2m_ok);    //回调完成
     if (*(dma_priv->rbuf) != *(dma_priv->wbuf)) 
         dev_err(dma_priv->dev, "buffer copy failed!\n");
     dev_info(dma_priv->dev, "buffer copy passed!\n");
@@ -50,19 +50,19 @@ static ssize_t sdma_write(struct file * file, const char __user * buf,
     dma_dst,
     dma_src,
     SDMA_BUF_SIZE,
-    DMA_CTRL_ACK | DMA_PREP_INTERRUPT);
+    DMA_CTRL_ACK | DMA_PREP_INTERRUPT); //获取一个descriptor，准备操作  此处声明了dma channel，源地址和目的地址，大小和状态 DMA_PREP_INTERRUPT表示事务完成后引起中断
     dev_info(dma_priv->dev, "successful descriptor obtained");
     dma_m2m_desc->callback = dma_m2m_callback;
     dma_m2m_desc->callback_param = dma_priv;
-    init_completion(&dma_priv->dma_m2m_ok);
-    cookie = dmaengine_submit(dma_m2m_desc);
-    if (dma_submit_error(cookie)){
+    init_completion(&dma_priv->dma_m2m_ok); //初始化completion
+    cookie = dmaengine_submit(dma_m2m_desc);    //把该descriptor提交至queue
+    if (dma_submit_error(cookie)){  //检查提交结果
         dev_err(dma_priv->dev, "Failed to submit DMA\n");
         return -EINVAL;
     };
-    dma_async_issue_pending(dma_priv->dma_m2m_chan);
-    wait_for_completion(&dma_priv->dma_m2m_ok);
-    dma_async_is_tx_complete(dma_priv->dma_m2m_chan, cookie, NULL, NULL);
+    dma_async_issue_pending(dma_priv->dma_m2m_chan);    //发出等待DMA请求
+    wait_for_completion(&dma_priv->dma_m2m_ok); //等待对应callback completion
+    dma_async_is_tx_complete(dma_priv->dma_m2m_chan, cookie, NULL, NULL);   //dma是否完成？
     dev_info(dma_priv->dev, "The rbuf string is %s\n", dma_priv->rbuf);
     dma_unmap_single(dma_priv->dev, dma_src, SDMA_BUF_SIZE, DMA_TO_DEVICE);
     dma_unmap_single(dma_priv->dev, dma_dst, SDMA_BUF_SIZE, DMA_TO_DEVICE);
@@ -82,7 +82,7 @@ static int my_probe(struct platform_device *pdev)
     dma_device->dma_misc_device.name = "sdma_test";
     dma_device->dma_misc_device.fops = &dma_fops;
     dma_device->dev = &pdev->dev;
-    dma_device->wbuf = devm_kzalloc(&pdev->dev, SDMA_BUF_SIZE, GFP_KERNEL);
+    dma_device->wbuf = devm_kzalloc(&pdev->dev, SDMA_BUF_SIZE, GFP_KERNEL); //一个page
     if(!dma_device->wbuf) {
         dev_err(&pdev->dev, "error allocating wbuf !!\n");
         return -ENOMEM;
@@ -92,9 +92,9 @@ static int my_probe(struct platform_device *pdev)
         dev_err(&pdev->dev, "error allocating rbuf !!\n");
         return -ENOMEM;
     }
-    dma_cap_zero(dma_m2m_mask);
-    dma_cap_set(DMA_MEMCPY, dma_m2m_mask);
-    dma_device->dma_m2m_chan = dma_request_channel(dma_m2m_mask, 0, NULL);
+    dma_cap_zero(dma_m2m_mask); //清0
+    dma_cap_set(DMA_MEMCPY, dma_m2m_mask);  //设置dma复制的mask
+    dma_device->dma_m2m_chan = dma_request_channel(dma_m2m_mask, 0, NULL);  //基于该mask申请dma channel
     if (!dma_device->dma_m2m_chan) {
         dev_err(&pdev->dev, "Error opening the SDMA memory to memory channel\n");
         return -EINVAL;
