@@ -64,6 +64,12 @@
 * device_create()和device_destroy()用于创建和销毁设备节点。
 * 可创建一个class，基于这个class创建一个device，且这个device是与某个已创建的character device绑定，以达到一个class可以管理多个device(character device)的目的。
 
+## Miscellaneous Character Driver
+* major number默认为10，动态分配minor number，设备可见于`/sys/class/misc`
+
+### Registering A Minor Number
+* `int misc_register(struct miscdevice *misc);`和`int misc_deregister(struct miscdevice *misc);`为所用函数。`struct miscdevice`的`minor`成员设置为MISC_DYNAMIC_MINOR即可使用动态minor number。
+
 # Chapter 5 Platform Drivers
 待写
 
@@ -415,6 +421,17 @@ void *devm_kfree(struct device *dev, void *p);
         3. 用于发送的buffer要在map前写入数据。
         4. DMA运行中，buffer不可unmap。
 
+# Chapter 10 Input Subsystem
+待写
+
+# Chapter 11 Industrial I/O Subsystem
+待写
+
+# Chapter 12 Using the Regmap API in Device Drivers
+* 直接看code
+
+# Chapter 13 USB Device Drivers
+待写
 
 
 
