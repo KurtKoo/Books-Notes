@@ -72,7 +72,7 @@
 
 # Chapter 5 Platform Drivers
 ## Pin Control Subsystem
-![pin control system](github地址)
+![pin control system](https://github.com/KurtKoo/Books-Notes/tree/master/Linux%20Driver%20Development%20with%20Raspberry%20Pi/img/chap5/pin_control_system.png)
 * 许多内核数据结构定义，直接看比记录更好
 
 ## GPIO Descriptor Consumer Interface
