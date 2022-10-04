@@ -71,17 +71,39 @@
 * `int misc_register(struct miscdevice *misc);`和`int misc_deregister(struct miscdevice *misc);`为所用函数。`struct miscdevice`的`minor`成员设置为MISC_DYNAMIC_MINOR即可使用动态minor number。
 
 # Chapter 5 Platform Drivers
-## Documentation to Interact with The Hardware
-
-## Hardware Naming Convention
-
 ## Pin Control Subsystem
-
-## GPIO Controller Driver
+![pin control system](github地址)
+* 许多内核数据结构定义，直接看比记录更好
 
 ## GPIO Descriptor Consumer Interface
 ### Obtaining and Disposing GPIOs
+> 获取gpio_desc
+struct gpio_desc *devm_gpiod_get(struct device *dev, const char *con_id,
+ enum gpiod_flags flags)（多用这个）  
+ struct gpio_desc *devm_gpiod_get_index(struct device *dev,
+ const char *con_id,
+ unsigned int idx,
+ enum gpiod_flags flags)  
+ >  
+ > flags的可选值  
+ GPIOD_ASIS或者0，不对GPIO初始化，GPIO direction随后一定要用函数初始化。  
+GPIOD_IN，初始化为输入。  
+GPIOD_OUT_LOW，初始化输出为0.  
+GPIOD_OUT_HIGH，初始化输出为1.  
+>  
+> 释放gpio_desc  
+devm_gpiod_put()
+
 ### Using GPIOs
+> 当前面的flags设置为GPIOD_ASIS，必须用以下函数设置direction  
+int gpiod_direction_input(struct gpio_desc *desc);  
+int gpiod_direction_output(struct gpio_desc *desc, int value);  
+>  
+> 设置gpio的逻辑值  
+int gpiod_get_value(const struct gpio_desc *desc);  
+void gpiod_set_value(struct gpio_desc *desc, int value);
+
+
 ### GPIOs mapped to IRQs
 ### GPIOs in The Device Tree
 
